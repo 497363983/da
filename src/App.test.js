@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+test('renders gun game UI', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /gun game/i })).toBeInTheDocument();
+  expect(screen.getByText(/lives:/i)).toBeInTheDocument();
+  expect(screen.getByText(/score:/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/shotgun/i).length).toBeGreaterThan(0);
 });

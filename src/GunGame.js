@@ -28,9 +28,11 @@ function GunGame() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [powerUps, setPowerUps] = useState([]);
   const [activePowerUps, setActivePowerUps] = useState({});
+  const [pickupMessage, setPickupMessage] = useState(null);
 
   // Refs: For mutable values and DOM access
   const killsRef = useRef(kills);
+  const activePowerUpsRef = useRef(activePowerUps);
   const reloadQueueRef = useRef([]);
   const isImmune = useRef(false);
   const blinkIntervalRef = useRef(null);
@@ -42,6 +44,9 @@ function GunGame() {
   const projectileId = useRef(0);
   const timerRef = useRef(null);
   const powerUpId = useRef(0);
+  const pickupMessageTimeoutRef = useRef(null);
+  const skipLevelClearBonusRef = useRef(false);
+  const nukeTriggeredRef = useRef(false);
 
   // Memoized Data: Weapon and circle configurations
   const weapons = useMemo(() => ({
@@ -100,6 +105,70 @@ function GunGame() {
   };
 
   // Game Logic Functions
+  const showPickup = useCallback((message) => {
+    if (pickupMessageTimeoutRef.current) {
+      clearTimeout(pickupMessageTimeoutRef.current);
+      pickupMessageTimeoutRef.current = null;
+    }
+    setPickupMessage(message);
+    pickupMessageTimeoutRef.current = setTimeout(() => {
+      setPickupMessage(null);
+      pickupMessageTimeoutRef.current = null;
+    }, 2500);
+  }, []);
+
+  const isActive = useCallback((powerUpKey, now = Date.now()) => {
+    const active = activePowerUpsRef.current?.[powerUpKey];
+    return !!active && (now - active.startTime) < active.duration;
+  }, []);
+
+  const startBlinking = useCallback((durationMs) => {
+    if (blinkIntervalRef.current) {
+      clearTimeout(blinkIntervalRef.current);
+      blinkIntervalRef.current = null;
+    }
+
+    let blinkSpeed = 500;
+    let elapsed = 0;
+    let visible = false;
+
+    const blink = () => {
+      visible = !visible;
+      setShowPlayer(visible);
+      elapsed += blinkSpeed;
+
+      if (elapsed >= durationMs) {
+        setShowPlayer(true);
+        blinkIntervalRef.current = null;
+        return;
+      }
+
+      blinkSpeed = blinkSpeed * 0.88;
+      blinkSpeed = Math.max(100, blinkSpeed);
+      blinkIntervalRef.current = setTimeout(blink, blinkSpeed);
+    };
+
+    blink();
+  }, []);
+
+  const pickPowerUpType = useCallback(() => {
+    const choices = [
+      { type: 'shotgun', weight: 25 },
+      { type: 'points100', weight: 25 },
+      { type: 'bounce', weight: 25 },
+      { type: 'invincibility', weight: 10 },
+      { type: 'nuke', weight: 10 },
+      { type: 'extraLife', weight: 5 }
+    ];
+    const roll = Math.random() * 100;
+    let cumulative = 0;
+    for (const choice of choices) {
+      cumulative += choice.weight;
+      if (roll < cumulative) return choice.type;
+    }
+    return 'shotgun';
+  }, []);
+
   const spawnCircles = useCallback((num, type = 'large') => {
     const newCircles = [];
     const gameArea = gameAreaRef.current;
@@ -176,53 +245,78 @@ function GunGame() {
   }, [circleTypes]);
 
   const dropPowerUp = useCallback((x, y) => {
+    const powerUpType = pickPowerUpType();
     const newPowerUp = {
       id: powerUpId.current++,
       x: x,
       y: y,
-      type: 'shotgun',
+      type: powerUpType,
       spawnTime: Date.now(),
       duration: 10000,
       justDropped: true
     };
     updatePowerUps([...powerUpsRef.current, newPowerUp]);
-  }, []);
+  }, [pickPowerUpType]);
 
-  const activatePowerUp = useCallback((powerUpType) => {
+  const applyPowerUp = useCallback((powerUpType) => {
+    const now = Date.now();
+
     if (powerUpType === 'shotgun') {
       setActivePowerUps(prev => ({
         ...prev,
         shotgun: {
-          startTime: Date.now(),
+          startTime: now,
           duration: 10000
         }
       }));
+      showPickup('Shotgun active');
+      return;
     }
-  }, []);
 
-  const startBlinking = () => {
-    let blinkSpeed = 500;
-    let elapsed = 0;
-    let visible = false;
+    if (powerUpType === 'bounce') {
+      setActivePowerUps(prev => ({
+        ...prev,
+        bounce: {
+          startTime: now,
+          duration: 10000
+        }
+      }));
+      showPickup('Bounce shot active');
+      return;
+    }
 
-    const blink = () => {
-      visible = !visible;
-      setShowPlayer(visible);
-      elapsed += blinkSpeed;
+    if (powerUpType === 'invincibility') {
+      setActivePowerUps(prev => ({
+        ...prev,
+        invincibility: {
+          startTime: now,
+          duration: 30000
+        }
+      }));
+      startBlinking(30000);
+      showPickup('Invincibility active');
+      return;
+    }
 
-      if (elapsed >= 5000) {
-        setShowPlayer(true);
-        isImmune.current = false;
-        return;
-      }
+    if (powerUpType === 'extraLife') {
+      setLives(prev => prev + 1);
+      showPickup('+1 life');
+      return;
+    }
 
-      blinkSpeed = blinkSpeed * 0.88;
-      blinkSpeed = Math.max(100, blinkSpeed);
-      blinkIntervalRef.current = setTimeout(blink, blinkSpeed);
-    };
+    if (powerUpType === 'points100') {
+      setKills(k => k + 100);
+      showPickup('+100 points');
+      return;
+    }
 
-    blink();
-  };
+    if (powerUpType === 'nuke') {
+      skipLevelClearBonusRef.current = true;
+      nukeTriggeredRef.current = true;
+      setKills(k => k + 250);
+      showPickup('NUKE!');
+    }
+  }, [showPickup, startBlinking]);
 
   const submitHighScore = () => {
     if (!playerName.trim()) return;
@@ -261,9 +355,38 @@ function GunGame() {
     const playerX = rect.width / 2;
     const playerY = rect.height / 2;
     const playerRadius = 10;
+    const currentTime = Date.now();
+    const bounceActive = isActive('bounce', currentTime);
+    const invincibleActive = isActive('invincibility', currentTime);
+
     const movedProjectiles = projectilesRef.current
-      .map(p => ({ ...p, x: p.x + p.dx, y: p.y + p.dy }))
-      .filter(p => p.x >= 0 && p.x <= rect.width && p.y >= 0 && p.y <= rect.height);
+      .map(p => {
+        const moved = { ...p, x: p.x + p.dx, y: p.y + p.dy };
+        if (!bounceActive) return moved;
+
+        let { x, y, dx, dy, size } = moved;
+        if (x - size < 0) {
+          x = size;
+          dx = Math.abs(dx);
+        } else if (x + size > rect.width) {
+          x = rect.width - size;
+          dx = -Math.abs(dx);
+        }
+
+        if (y - size < 0) {
+          y = size;
+          dy = Math.abs(dy);
+        } else if (y + size > rect.height) {
+          y = rect.height - size;
+          dy = -Math.abs(dy);
+        }
+
+        return { ...moved, x, y, dx, dy };
+      })
+      .filter(p => {
+        if (bounceActive) return true;
+        return p.x >= 0 && p.x <= rect.width && p.y >= 0 && p.y <= rect.height;
+      });
     
     const movedCircles = circlesRef.current.map(circle => {
       let newX = circle.x + circle.dx;
@@ -288,7 +411,6 @@ function GunGame() {
       return updatedCircle;
     });
     
-    const currentTime = Date.now();
     const validPowerUps = powerUpsRef.current.filter(powerUp => {
       return currentTime - powerUp.spawnTime < powerUp.duration;
     });
@@ -347,7 +469,7 @@ function GunGame() {
           if (Math.sqrt(dx * dx + dy * dy) < 15 + p.size) {
             collected = true;
             usedProjectileIds.add(p.id);
-            activatePowerUp(powerUp.type);
+            applyPowerUp(powerUp.type);
             hitsThisFrame++;
             break;
           }
@@ -362,7 +484,6 @@ function GunGame() {
         p.justDropped = false;
       }
     });
-    updatePowerUps(survivingPowerUps);
 
     if (hitsThisFrame > 0) {
       setShotsHit(prev => prev + hitsThisFrame);
@@ -373,7 +494,7 @@ function GunGame() {
       const dy = circle.y - playerY;
       return Math.sqrt(dx * dx + dy * dy) < circle.size + playerRadius;
     });
-    if (playerHit && !isImmune.current) {
+    if (playerHit && !isImmune.current && !invincibleActive) {
       isImmune.current = true;
       setIsRespawning(true);
       setShowPlayer(false);
@@ -386,7 +507,10 @@ function GunGame() {
             checkForHighScore();
           } else {
             setShowPlayer(true);
-            startBlinking();
+            startBlinking(5000);
+            setTimeout(() => {
+              isImmune.current = false;
+            }, 5000);
           }
           return newLives;
         });
@@ -395,16 +519,33 @@ function GunGame() {
     }
 
     const remainingProjectiles = movedProjectiles.filter(p => !usedProjectileIds.has(p.id));
+    if (nukeTriggeredRef.current) {
+      nukeTriggeredRef.current = false;
+      updateCircles([]);
+      updatePowerUps([]);
+      updateProjectiles(remainingProjectiles);
+      if (totalPoints > 0) setKills(k => k + totalPoints);
+      setIsSpawning(true);
+      setLevel(prev => prev + 1);
+      skipLevelClearBonusRef.current = false;
+      return;
+    }
+
     const allCircles = [...survivingCircles, ...newSplitCircles];
     updateCircles(allCircles);
     updateProjectiles(remainingProjectiles);
+    updatePowerUps(survivingPowerUps);
     if (totalPoints > 0) setKills(k => k + totalPoints);
     if (allCircles.length === 0 && !isSpawning) {
       setIsSpawning(true);
       setLevel(prev => prev + 1);
-      setKills(k => k + 25);
+      if (!skipLevelClearBonusRef.current) {
+        setKills(k => k + 25);
+      } else {
+        skipLevelClearBonusRef.current = false;
+      }
     }
-  }, [gameOver, splitCircle, isSpawning, isRespawning, leaderboard, dropPowerUp, activatePowerUp]);
+  }, [gameOver, splitCircle, isSpawning, isRespawning, leaderboard, dropPowerUp, applyPowerUp, isActive, startBlinking]);
 
   // Handler: Process firing projectiles
   const handleFire = (event) => {
@@ -422,8 +563,7 @@ function GunGame() {
     const angle = Math.atan2(clickY - playerY, clickX - playerX);
     const weapon = weapons[currentWeapon];
 
-    const isShotgunActive = activePowerUps.shotgun && 
-      (Date.now() - activePowerUps.shotgun.startTime) < activePowerUps.shotgun.duration;
+    const isShotgunActive = isActive('shotgun');
 
     const newProjectiles = [];
 
@@ -495,6 +635,8 @@ function GunGame() {
     projectileId.current = 0;
     powerUpId.current = 0;
     isImmune.current = false;
+    skipLevelClearBonusRef.current = false;
+    nukeTriggeredRef.current = false;
     reloadQueueRef.current.forEach(clearTimeout);
     reloadQueueRef.current = [];
     if (blinkIntervalRef.current) {
@@ -505,6 +647,11 @@ function GunGame() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (pickupMessageTimeoutRef.current) {
+      clearTimeout(pickupMessageTimeoutRef.current);
+      pickupMessageTimeoutRef.current = null;
+    }
+    setPickupMessage(null);
   };
 
   // Effects: Manage game loop, spawning, and cleanup
@@ -543,6 +690,10 @@ function GunGame() {
     killsRef.current = kills;
   }, [kills]);
 
+  useEffect(() => {
+    activePowerUpsRef.current = activePowerUps;
+  }, [activePowerUps]);
+
   // Render: Pass props to UI component
   return (
     <GunGameUI
@@ -562,6 +713,7 @@ function GunGame() {
       leaderboard={leaderboard}
       powerUps={powerUps}
       activePowerUps={activePowerUps}
+      pickupMessage={pickupMessage}
       isRespawning={isRespawning}
       gameAreaRef={gameAreaRef}  // Pass ref for attachment in UI
       handleFire={handleFire}

@@ -19,6 +19,7 @@ function GunGameUI({
   leaderboard,
   powerUps,
   activePowerUps,
+  pickupMessage,
   isRespawning,
   gameAreaRef,
   handleFire,
@@ -27,6 +28,22 @@ function GunGameUI({
   submitHighScore,
   formatTime
 }) {
+  const now = Date.now();
+  const getRemainingSeconds = (powerUpKey) => {
+    const powerUp = activePowerUps?.[powerUpKey];
+    if (!powerUp) return 0;
+    return Math.max(0, Math.ceil((powerUp.duration - (now - powerUp.startTime)) / 1000));
+  };
+
+  const powerUpVisuals = {
+    shotgun: { label: 'S', bg: '#4CAF50', border: '#2E7D32', title: 'Shotgun' },
+    points100: { label: '+100', bg: '#FBC02D', border: '#F57F17', title: '+100 points' },
+    bounce: { label: 'B', bg: '#00ACC1', border: '#006064', title: 'Bounce shot' },
+    invincibility: { label: 'I', bg: '#8E24AA', border: '#4A148C', title: 'Invincibility' },
+    nuke: { label: 'N', bg: '#E53935', border: '#B71C1C', title: 'Nuke' },
+    extraLife: { label: '+1', bg: '#EC407A', border: '#AD1457', title: 'Extra life' }
+  };
+
   return (
     <div className="gun-game">
       <h1>Gun Game</h1>
@@ -102,17 +119,24 @@ function GunGameUI({
             <div className="stats-left">
                 Accuracy: {shotsFired > 0 ? ((shotsHit / shotsFired) * 100).toFixed(1) : 0}% | 
                 Time: {formatTime(elapsedTime)}
+                {pickupMessage ? <span className="pickup-message"> | {pickupMessage}</span> : null}
             </div>
-            <div className={`powerup-box ${activePowerUps.shotgun ? 'powerup-active' : 'powerup-inactive'}`}>
-                {activePowerUps.shotgun
-                ? `SHOTGUN ACTIVE (${Math.ceil((activePowerUps.shotgun.duration - (Date.now() - activePowerUps.shotgun.startTime)) / 1000)}s)`
-                : 'SHOTGUN INACTIVE'}
+            <div className="powerup-status-row">
+              <div className={`powerup-box ${activePowerUps?.shotgun ? 'powerup-active' : 'powerup-inactive'}`}>
+                {activePowerUps?.shotgun ? `SHOTGUN (${getRemainingSeconds('shotgun')}s)` : 'SHOTGUN'}
+              </div>
+              <div className={`powerup-box ${activePowerUps?.bounce ? 'powerup-active' : 'powerup-inactive'}`}>
+                {activePowerUps?.bounce ? `BOUNCE (${getRemainingSeconds('bounce')}s)` : 'BOUNCE'}
+              </div>
+              <div className={`powerup-box ${activePowerUps?.invincibility ? 'powerup-active' : 'powerup-inactive'}`}>
+                {activePowerUps?.invincibility ? `INVINCIBLE (${getRemainingSeconds('invincibility')}s)` : 'INVINCIBLE'}
+              </div>
             </div>
           </div>
 
           <div className="legend">
             <strong>Scoring:</strong> Large (1pt) → Medium (2pt each) → Small (5pt each) | Level Clear: +25pts<br/>
-            <strong>Power-ups:</strong> Purple blinking circles drop power-ups when hit!
+            <strong>Power-ups:</strong> Purple blinking circles drop power-ups when hit. Drops: S (shotgun), +100, B (bounce), I (invincible), N (nuke), +1 (life).
           </div>
 
           <div
@@ -161,14 +185,14 @@ function GunGameUI({
             })}
 
             {powerUps.map((powerUp) => (
-              <div key={powerUp.id} style={{
+              <div key={powerUp.id} title={powerUpVisuals[powerUp.type]?.title || powerUp.type} style={{
                 position: 'absolute',
                 left: powerUp.x - 15,
                 top: powerUp.y - 15,
                 width: 30,
                 height: 30,
-                backgroundColor: '#4CAF50',
-                border: '3px solid #2E7D32',
+                backgroundColor: powerUpVisuals[powerUp.type]?.bg || '#4CAF50',
+                border: `3px solid ${powerUpVisuals[powerUp.type]?.border || '#2E7D32'}`,
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
@@ -178,7 +202,7 @@ function GunGameUI({
                 color: 'white',
                 zIndex: 2
               }}>
-                S
+                {powerUpVisuals[powerUp.type]?.label || '?'}
               </div>
             ))}
 

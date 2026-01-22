@@ -1,0 +1,248 @@
+/* src/GunGame.css */
+.gun-game {
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  background-color: #f0f0f0;
+  min-height: 100vh;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+h1 {
+  color: #333;
+  margin: 10px 0;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  max-width: min(800px, 95vw);
+  margin: 0 auto 10px auto;
+  padding: 8px;
+  background-color: #333;
+  color: white;
+  border-radius: 8px;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  box-sizing: border-box;
+}
+
+.stats-hud {
+  display: flex;
+  justify-content: space-between;
+  max-width: min(800px, 95vw);
+  margin: 0 auto 10px auto;
+  padding: 8px;
+  background-color: #444;
+  color: white;
+  border-radius: 8px;
+  font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+  box-sizing: border-box;
+}
+
+.powerup-hud {
+  max-width: min(800px, 95vw);
+  margin: 0 auto 10px auto;
+  background-color: #9C27B0;
+  color: white;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+  box-sizing: border-box;
+}
+
+.legend {
+  max-width: min(800px, 95vw);
+  margin: 0 auto 10px auto;
+  background-color: #f0f0f0;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+  box-sizing: border-box;
+  border: 1px solid #ddd;
+}
+
+.game-area {
+  position: relative;
+  width: min(800px, 95vw);
+  height: min(600px, 70vh);
+  max-height: 600px;
+  background-color: #fff;
+  border: 2px solid #333;
+  margin: 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: crosshair;
+  box-sizing: border-box;
+}
+
+.game-over-container {
+  max-width: min(800px, 95vw);
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #222;
+  color: white;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.game-over-container h2 {
+  margin-top: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.leaderboard-container {
+  background-color: #333;
+  padding: 15px;
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.leaderboard-entry {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #555;
+  font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+}
+
+.leaderboard-entry:last-child {
+  border-bottom: none;
+}
+
+.name-prompt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.name-prompt-content {
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.name-input {
+  padding: 10px;
+  font-size: 16px;
+  margin-bottom: 15px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+  max-width: 200px;
+  box-sizing: border-box;
+}
+
+.submit-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.submit-button:enabled {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.submit-button:disabled {
+  background-color: #ccc;
+  color: white;
+  cursor: not-allowed;
+}
+
+.play-again-button {
+  margin-top: 20px;
+  padding: 12px 24px;
+  font-size: 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.play-again-button:hover {
+  background-color: #45a049;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .gun-game {
+    padding: 5px;
+  }
+  
+  .hud, .stats-hud {
+    flex-direction: column;
+    gap: 5px;
+    text-align: center;
+  }
+  
+  .game-area {
+    height: min(600px, 60vh);
+  }
+}
+
+@media (max-height: 800px) {
+  .game-area {
+    height: min(600px, 60vh);
+  }
+}
+
+.stats-bar {
+  max-width: min(800px, 95vw);
+  margin: 0 auto 10px auto;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #444;
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.stats-left {
+  color: #eee;
+}
+
+.powerup-box {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  min-width: 150px;
+  text-align: center;
+}
+
+.powerup-active {
+  background-color: hotpink;
+  color: white;
+}
+
+.powerup-inactive {
+  background-color: #666;
+  color: #ccc;
+}
